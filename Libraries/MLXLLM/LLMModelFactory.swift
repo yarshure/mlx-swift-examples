@@ -261,28 +261,41 @@ public class LLMModelFactory: ModelFactory {
         progressHandler: @Sendable @escaping (Progress) -> Void
     ) async throws -> ModelContext {
         // download weights and config
-        let modelDirectory = try await downloadModel(
-            hub: hub, configuration: configuration, progressHandler: progressHandler)
+        // 获取模型目录路径
+        let modelDirectory = configuration.modelDirectory(hub: hub)
 
-        // load the generic config to unerstand which model and how to load the weights
-        let configurationURL = modelDirectory.appending(component: "config.json")
-        let baseConfig = try JSONDecoder().decode(
-            BaseConfiguration.self, from: Data(contentsOf: configurationURL))
-        let model = try typeRegistry.createModel(
-            configuration: configurationURL, modelType: baseConfig.modelType)
+        // 检查模型是否已存在本地
+        let modelExistsLocally = FileManager.default.fileExists(atPath: modelDirectory.path)
 
-        // apply the weights to the bare model
-        try loadWeights(
-            modelDirectory: modelDirectory, model: model, quantization: baseConfig.quantization)
+        // 若不存在，下载模型
+        let finalModelDirectory: URL = modelExistsLocally
+            ? modelDirectory
+            : try await downloadModel(hub: hub, configuration: configuration, progressHandler: progressHandler)
 
+        // 解析模型配置
+        let configURL = finalModelDirectory.appendingPathComponent("config.json")
+        let baseConfig = try JSONDecoder().decode(BaseConfiguration.self, from: Data(contentsOf: configURL))
+
+        // 创建模型实例
+        let model = try typeRegistry.createModel(configuration: configURL, modelType: baseConfig.modelType)
+
+        // 加载模型权重
+        try loadWeights(modelDirectory: finalModelDirectory, model: model, quantization: baseConfig.quantization)
+
+        // 加载分词器
         let tokenizer = try await loadTokenizer(configuration: configuration, hub: hub)
 
+        // 返回构造好的 LLM 实例
         return .init(
-            configuration: configuration, model: model,
+            configuration: configuration,
+            model: model,
             processor: LLMUserInputProcessor(
-                tokenizer: tokenizer, configuration: configuration,
-                messageGenerator: DefaultMessageGenerator()),
-            tokenizer: tokenizer)
+                tokenizer: tokenizer,
+                configuration: configuration,
+                messageGenerator: DefaultMessageGenerator()
+            ),
+            tokenizer: tokenizer
+        )
     }
 
 }

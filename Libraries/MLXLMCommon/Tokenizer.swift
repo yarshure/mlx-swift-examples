@@ -27,10 +27,18 @@ public func loadTokenizerConfig(configuration: ModelConfiguration, hub: HubApi) 
     case .id(let id):
         do {
             // the load can fail (async when we try to use it)
-            let loaded = LanguageModelConfigurationFromHub(
-                modelName: configuration.tokenizerId ?? id, hubApi: hub)
-            _ = try await loaded.tokenizerConfig
-            config = loaded
+            let downloadBase = configuration.modelDirectory(hub: hub)
+            if FileManager.default.fileExists(atPath: downloadBase.path) {
+                config = LanguageModelConfigurationFromHub(modelFolder: downloadBase, hubApi: hub)
+                print(config)
+            }else {
+                // the load can fail (async when we try to use it)
+                let loaded = LanguageModelConfigurationFromHub(
+                    modelName: configuration.tokenizerId ?? id, hubApi: hub)
+                _ = try await loaded.tokenizerConfig
+                config = loaded
+            }
+                        
         } catch {
             let nserror = error as NSError
             if nserror.domain == NSURLErrorDomain
