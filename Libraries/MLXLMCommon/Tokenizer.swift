@@ -90,6 +90,7 @@ public class TokenizerReplacementRegistry: @unchecked Sendable {
     private var replacementTokenizers = [
         "InternLM2Tokenizer": "PreTrainedTokenizer",
         "Qwen2Tokenizer": "PreTrainedTokenizer",
+        "Qwen3Tokenizer": "PreTrainedTokenizer",
         "CohereTokenizer": "PreTrainedTokenizer",
     ]
 
